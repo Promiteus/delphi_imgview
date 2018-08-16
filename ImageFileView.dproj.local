@@ -1,0 +1,10 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<BorlandProject>
+	<Transactions>
+    <Transaction>1899.12.30 00:00:00.000.494,C:\Users\Роман\Documents\Embarcadero\Studio\Projects\Project1.dproj=E:\Примеры\Задания\AustLogics\Просмоторщик файлов\ImageFileView.dproj</Transaction>
+    <Transaction>1899.12.30 00:00:00.000.705,C:\Users\Роман\Documents\Embarcadero\Studio\Projects\Unit1.dfm=E:\Примеры\Задания\AustLogics\Просмоторщик файлов\ImageFileViewUnit.dfm</Transaction>
+    <Transaction>1899.12.30 00:00:00.000.705,C:\Users\Роман\Documents\Embarcadero\Studio\Projects\Unit1.pas=E:\Примеры\Задания\AustLogics\Просмоторщик файлов\ImageFileViewUnit.pas</Transaction>
+    <Transaction>1899.12.30 00:00:00.000.591,=C:\Users\Роман\Documents\Embarcadero\Studio\Projects\Unit1.pas</Transaction>
+    <Transaction>1899.12.30 00:00:00.000.172,=C:\Users\Роман\Documents\Embarcadero\Studio\Projects\Unit1.pas</Transaction>
+  </Transactions>
+</BorlandProject>

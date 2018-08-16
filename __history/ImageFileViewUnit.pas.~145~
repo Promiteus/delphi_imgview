@@ -1,0 +1,343 @@
+unit ImageFileViewUnit;
+
+interface
+
+uses
+  Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes, Vcl.Graphics,
+  Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.ExtCtrls, Vcl.ComCtrls, Vcl.StdCtrls,
+  Vcl.Grids, Vcl.ExtDlgs, JPEG, PNGImage;
+
+type
+  TfrmImageFileView = class(TForm)
+    dbDirs: TGroupBox;
+    gbPreview: TGroupBox;
+    twDirectories: TTreeView;
+    Splitter1: TSplitter;
+    sbarFilePath: TStatusBar;
+    sgImgView: TStringGrid;
+    procedure FormCreate(Sender: TObject);
+    procedure twDirectoriesExpanding(Sender: TObject; Node: TTreeNode;
+      var AllowExpansion: Boolean);
+    procedure twDirectoriesDblClick(Sender: TObject);
+    procedure sgImgViewDrawCell(Sender: TObject; ACol, ARow: Integer;
+      Rect: TRect; State: TGridDrawState);
+    procedure FormDestroy(Sender: TObject);
+  private
+    { Private declarations }
+    ImgFileList: TStrings;
+    FgridCol: Integer;
+    FgridRow: Integer;
+    //Получить список каталогов каталога "S"
+    procedure GetDirs(ADirName: String; var ADirList: TStrings);
+    //Вывести имеющиеся в системе накопистели
+    procedure GetRoot(var ARoot: TStrings);
+    //Отобразить корневую ветвь дерева
+    procedure DisplayRootNodes(ATree: TTreeView);
+    //Получить реверсивную последовательность каталогов
+    function ReverseSort(AList: TList): String;
+    //Получить список файлов в каталоге
+    procedure GetFileList(ADir: String; var FileList: TStrings);
+
+    procedure SetGridData(SG: TStringGrid; List: TStrings; var ACol, ARow: Integer);
+
+    function GetTreeNodeChainText(ANode: TTreeNode; AList: TList; var Count: Integer): String;
+  public
+    { Public declarations }
+    procedure ClearGrid;
+
+    property gridRow: Integer read FgridRow write FgridRow;
+    property gridCol: Integer read FgridCol write FgridCol;
+  end;
+
+var
+  frmImageFileView: TfrmImageFileView;
+
+implementation
+
+{$R *.dfm}
+
+{ TfrmImageFileView }
+
+procedure TfrmImageFileView.ClearGrid;
+begin
+   ImgFileList.Clear;
+   sgImgView.RowCount:=1;
+end;
+
+procedure TfrmImageFileView.DisplayRootNodes(ATree: TTreeView);
+var
+  lRootItem: TTreeNode;
+  lDriveItem: TTreeNode;
+  lRootList: TStrings;
+  I: Integer;
+begin
+   lRootItem:=ATree.Items.Add(nil, 'DRIVES');
+
+   lRootList:=TStringList.Create;
+   try
+      GetRoot(lRootList);
+      for I := 0 to lRootList.Count-1 do
+      begin
+         lDriveItem:=ATree.Items.AddChild(lRootItem, lRootList.Strings[I]);
+         ATree.Items.AddChild(lDriveItem, '');
+      end;
+   finally
+     FreeAndNil(lRootList);
+   end;
+end;
+
+procedure TfrmImageFileView.FormCreate(Sender: TObject);
+begin
+   DisplayRootNodes(twDirectories);
+
+   ImgFileList:=TStringList.Create;
+end;
+
+procedure TfrmImageFileView.FormDestroy(Sender: TObject);
+begin
+  if ImgFileList <> nil then
+   FreeAndNil(ImgFileList);
+end;
+
+//Получить список каталогов каталога "S"
+procedure TfrmImageFileView.GetDirs(ADirName: String; var ADirList: TStrings);
+ var
+  lSR: TSearchRec;
+  ldir: String;
+begin
+   if FindFirst(ADirName+'*.*',faDirectory, lSR)=0 then
+   repeat
+    if pos('.', lSR.Name) = 0 then
+    begin
+      ldir:=lSR.Name+'\';
+      ADirList.Add(ldir);
+    end;
+   until Findnext(lSR)<>0;
+   FindClose(lSR);
+end;
+
+
+procedure TfrmImageFileView.GetFileList(ADir: String; var FileList: TStrings);
+var
+    lSR: TSearchRec;
+begin
+  if FileList = nil then Exit;
+
+  FileList.Clear;
+  if FindFirst(ADir+'*.*', faAnyFile, lSR) = 0 then
+  begin
+   repeat
+    if (pos('.jpg', lSR.Name) <> 0) or (pos('.bmp', lSR.Name) <> 0) or
+     (pos('.png', lSR.Name) <> 0) then
+       FileList.Add(lSR.Name);
+   until FindNext(lSR)<>0;
+   FindClose(lSR);
+
+  // showmessage(FileList.Strings[0]);
+  end;
+end;
+
+
+//Вывести имеющиеся в системе накопистели
+procedure TfrmImageFileView.GetRoot(var ARoot: TStrings);
+var
+  lDrives: Dword;
+  lRootStr: String;
+  I: Integer;
+  f: Textfile;
+begin
+  ARoot.Clear;
+  lDrives := GetLogicalDrives;
+  lRootStr := '#:\';
+  for i := 0 to 24 do
+  begin
+    lRootStr[1] := Char(Ord('A') + i);
+    if (lDrives and (1 shl i)) > 0 then
+      if (GetDriveType(PChar(lRootStr)) = DRIVE_FIXED) then
+        ARoot.Add(lRootStr);
+  end;
+
+end;
+
+function TfrmImageFileView.GetTreeNodeChainText(ANode: TTreeNode; AList: TList; var Count: Integer): String;
+var
+   I: Integer;
+   lNode: TTreeNode;
+   lPath: String;
+begin
+      Count:=0;
+      lNode:=ANode;
+      for I := 0 to +ANode.Parent.Count-1 do
+      begin
+       if pos('DRIVES', lNode.Text) = 0 then
+       begin
+         if pos('\', lNode.Text) = 0 then
+          AList.Add(PChar(lNode.Text+'\'))
+         else
+          AList.Add(PChar(lNode.Text));
+
+
+          lNode:=lNode.Parent;
+       end;
+      end;
+
+     Count:=AList.Count;
+     result:= ReverseSort(AList);
+end;
+
+
+//Получить реверсивную последовательность каталогов
+function TfrmImageFileView.ReverseSort(AList: TList): String;
+var
+    lbufStr: String;
+    J: Integer;
+begin
+    for J := AList.Count-1 downto 0 do
+     lbufStr:=lbufStr+(PChar(AList.Items[J]));
+
+    result:=lbufStr;
+end;
+
+
+procedure TfrmImageFileView.SetGridData(SG: TStringGrid; List: TStrings; var ACol, ARow: Integer);
+var
+ lCol: Integer;
+ lRow: Integer;
+ I: Integer;
+begin
+      for I := 0 to sgImgView.ColCount-1 do
+        sgImgView.ColWidths[I] := round((sgImgView.Width-sgImgView.Margins.Left*4) / (sgImgView.ColCount));
+
+      for I := 0 to sgImgView.RowCount-1 do
+        sgImgView.RowHeights[I] := sgImgView.ColWidths[0];
+
+
+   lRow:=0;
+   lCol:=0;
+   for I := 0 to List.Count-1 do
+   begin
+      SG.Cells[lCol, lRow]:=List.Strings[I];
+      INC(lCol);
+
+      if lCol = SG.ColCount then
+      begin
+        INC(lRow);
+        lCol:=0;
+      end;
+   end;
+
+   ACol:=lCol-1;
+   ARow:=lRow;
+end;
+
+procedure TfrmImageFileView.sgImgViewDrawCell(Sender: TObject; ACol,
+  ARow: Integer; Rect: TRect; State: TGridDrawState);
+var
+ lImg: TImage;
+ lPNGImg: TPNGImage;
+ lStream: TStream;
+
+  begin
+   if (ImgFileList.Count = 0) then
+   begin
+      Exit;
+   end;
+
+    try
+      if pos('.PNG', AnsiUpperCase(sbarFilePath.Panels[0].Text+sgImgView.Cells[ACol, ARow])) = 0 then
+      begin
+       try
+          lImg:=TImage.Create(nil);
+          lImg.Picture.LoadFromFile(sbarFilePath.Panels[0].Text+sgImgView.Cells[ACol, ARow]);
+          sgImgView.Canvas.StretchDraw(Rect, lImg.Picture.Graphic);
+       finally
+         lImg.Free;
+       end;
+      end
+      else
+      begin
+       lStream := TMemoryStream.Create;
+
+       lImg:=TImage.Create(nil);
+       lPNGImg := TPngImage.Create;
+       try
+         lStream.Position := 0;
+         lPNGImg.LoadFromStream(lStream);
+         lImg.Picture.Graphic := lPNGImg;
+       finally
+         lStream.Free;
+         lImg.Free;
+         lPNGImg.Free;
+       end;
+      end;
+    except
+    end;
+end;
+
+
+
+procedure TfrmImageFileView.twDirectoriesDblClick(Sender: TObject);
+begin
+ //showmessage(twDirectories.Selected.Text);
+end;
+
+procedure TfrmImageFileView.twDirectoriesExpanding(Sender: TObject;
+  Node: TTreeNode; var AllowExpansion: Boolean);
+  var
+   lgList: TList;
+
+   lNewNode: TTreeNode;
+   lPath: String;
+   Cnt: Integer;
+   I: Integer;
+   lDirList: TStrings;
+begin
+
+  lgList:=TList.Create; //Список элементов каталога, полученый по названию ветвей
+  lDirList:=TStringList.Create; //Список каталогов, полученный от текущего
+  try
+    if (Node.Count = 1) then //Если я на предпоследнем узле
+    begin
+
+      //Получить название каталога по ветвям
+      lPath:=GetTreeNodeChainText(Node, lgList, Cnt);
+      //Отобразить файловый путь
+      sbarFilePath.Panels[0].Text:=lPath;
+      //Очичистить список от старых файлов
+      ImgFileList.Clear;
+      //Получить список изображений в данном каталоге
+      GetFileList(lPath, ImgFileList);
+
+      //Подсчитать число число необходимых строк
+      sgImgView.RowCount:=round(ImgFileList.Count/sgImgView.ColCount);
+
+      SetGridData(sgImgView, ImgFileList, FgridCol, FgridRow);
+     // showmessage(FgridCol.ToString+' '+FgridRow.ToString);
+
+      //Обновить таблицу принудительно
+      sgImgView.Refresh;
+
+      //Получить список каталогов каталога "S"
+      GetDirs(lPath, lDirList);
+
+      if lDirList.Count > 0 then
+      //Удалить буферных потомков для данного узда
+        Node.DeleteChildren;
+
+      for I := 0 to lDirList.Count-1 do
+      begin
+          //Создать список потомков для данного узда
+          lNewNode:=twDirectories.Items.AddChild(Node, lDirList.Strings[I]);
+          //Добавить для каждого потомка один буферный
+          twDirectories.Items.AddChild(lNewNode, 'Файлы');
+      end;
+    end;
+
+
+  finally
+    lgList.Free;
+    lDirList.Free;
+  end;
+end;
+
+end.
